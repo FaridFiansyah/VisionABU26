@@ -157,7 +157,7 @@ class PatternCentering:
         threshold_y=15,
         infer_every_n=INFER_EVERY_N,
         enable_profiling=True,
-        model_path="best11m5.onnx",
+        model_path="model/best2.pt",
         mode="red",
     ):
         self.model = YOLO(model_path)
