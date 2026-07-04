@@ -12,6 +12,7 @@ CAM_BUFFER_SIZE = 1
 
 SMOOTHING_ALPHA = 0.8
 INPUT_SIZE = 320
+i = 0  # default camera index
 
 CONFIDENCE_THRESHOLD = 0.3
 MIN_AREA  = 3000
@@ -211,6 +212,15 @@ class PatternCentering:
         print("[INFO] CPU Mode")
         return "cpu"
 
+
+    # model export 
+
+    def export_model(self, output_path=None):
+        if output_path is None:
+            output_path = self.model_path.replace(".pt", ".engine").replace(".onnx", ".engine")
+        self.model.export(format="engine", imagsz=INPUT_SIZE, half=True, simplify=True)
+        print(f"[INFO] Model exported to {output_path}")
+
     # ──────────────────────────────────────────────────────────────────
     # CORE LOGIC
     # ──────────────────────────────────────────────────────────────────
@@ -333,7 +343,7 @@ class PatternCentering:
     # ──────────────────────────────────────────────────────────────────
 
     def camera(self):
-        cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+        cap = cv2.VideoCapture(i)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH,  self.frame_width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
         cap.set(cv2.CAP_PROP_BUFFERSIZE,   CAM_BUFFER_SIZE)
@@ -520,5 +530,9 @@ class PatternCentering:
 # ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app = PatternCentering()
-    app.run()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--export":
+        model_path = sys.argv[2] if len(sys.argv) > 2 else "best.pt"
+        YOLO(model_path).export(format="engine", imgsz=INPUT_SIZE, half=True)
+    else:
+        PatternCentering().run()
