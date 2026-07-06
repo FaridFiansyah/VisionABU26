@@ -157,10 +157,12 @@ class PatternCentering:
         threshold_y=15,
         infer_every_n=INFER_EVERY_N,
         enable_profiling=True,
-        model_path="model/best2.pt",
+        model_path="model/best11m5.onnx", #good model antara best11m5.pt best2.onnx
         mode="red",
+        cam_index=0,
     ):
         self.model = YOLO(model_path)
+        self.cam_index = cam_index
 
         # warmup
         dummy = np.zeros((INPUT_SIZE, INPUT_SIZE, 3), dtype=np.uint8)
@@ -218,7 +220,7 @@ class PatternCentering:
     def export_model(self, output_path=None):
         if output_path is None:
             output_path = self.model_path.replace(".pt", ".engine").replace(".onnx", ".engine")
-        self.model.export(format="engine", imagsz=INPUT_SIZE, half=True, simplify=True)
+        self.model.export(format="engine", imgsz=INPUT_SIZE, simplify=True)
         print(f"[INFO] Model exported to {output_path}")
 
     # ──────────────────────────────────────────────────────────────────
@@ -278,7 +280,7 @@ class PatternCentering:
     def draw(self, frame: np.ndarray, bbox: tuple, result: dict) -> np.ndarray:
         x1, y1, x2, y2 = bbox
 
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 3)
 
         cx = result["center_x"]
         cy = result["center_y"]
@@ -308,7 +310,7 @@ class PatternCentering:
             (0, 255, 0), 2, cv2.LINE_AA
         )
 
-        cv2.circle(frame, (draw_cx, draw_cy), 5, (0, 255, 255), -1)
+        cv2.circle(frame, (draw_cx, draw_cy), 8, (0, 255, 255), -1)
 
         cv2.line(
             frame,
@@ -328,12 +330,14 @@ class PatternCentering:
         color = (0, 255, 0) if result["s"] else (0, 0, 255)
         cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
 
+        label = f"X:{result['x']}  Y:{result['y']}  S:{result['s']}"
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)
+        cv2.rectangle(frame, (8, 10), (18 + tw, 20 + th), (0, 0, 0), -1)
         cv2.putText(
-            frame,
-            f"X:{result['x']}  Y:{result['y']}  S:{result['s']}",
-            (10, 30),
+            frame, label,
+            (12, 18 + th),
             cv2.FONT_HERSHEY_SIMPLEX, 0.8,
-            (255, 255, 0), 2
+            (0, 255, 0), 2, cv2.LINE_AA
         )
 
         return frame
@@ -343,7 +347,7 @@ class PatternCentering:
     # ──────────────────────────────────────────────────────────────────
 
     def camera(self):
-        cap = cv2.VideoCapture(i)
+        cap = cv2.VideoCapture(self.cam_index, cv2.CAP_DSHOW)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH,  self.frame_width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
         cap.set(cv2.CAP_PROP_BUFFERSIZE,   CAM_BUFFER_SIZE)
@@ -449,10 +453,7 @@ class PatternCentering:
             result = self.evaluate(bbox)
             result["conf"] = conf
 
-            print(
-                f"X : {result['x']} "
-                f"Y : {result['y']} "
-            )
+            print(f"x {result['x']}")
 
             if self.profiler:
                 self.profiler.record(
@@ -534,5 +535,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--export":
         model_path = sys.argv[2] if len(sys.argv) > 2 else "best.pt"
         YOLO(model_path).export(format="engine", imgsz=INPUT_SIZE, half=True)
+    elif len(sys.argv) > 1 and sys.argv[1] == "--cam":
+        cam_index = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+        mode = sys.argv[3] if len(sys.argv) > 3 else "red"
+        PatternCentering(cam_index=cam_index, mode=mode).run()
     else:
         PatternCentering().run()
